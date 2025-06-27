@@ -1,6 +1,6 @@
 import os
 import io
-from fastapi import FastAPI, UploadFile, File, HTTPException
+from fastapi import FastAPI, UploadFile, File, HTTPException, Request
 import uvicorn
 # from pdf2image import convert_from_bytes
 from PIL import Image
@@ -99,11 +99,16 @@ def split_pdf_to_images(pdf_bytes: bytes):
     return images
 
 @app.post("/inspectDrawing")
-async def inspect_drawing(file: UploadFile = File(...)):
+async def inspect_drawing(file: UploadFile = File(None), request: Request = None):
     """
     Accepts a PDF via multipart/form-data, splits it into pages,
     and runs each page through GPT-4o-vision for drafting issue detection.
     """
+    print("---- incoming request ----")
+    print("Content-Type:", request.headers.get("content-type"))
+    # NOTE: FastAPI reads the stream only once, so don't print body here.
+    # ----------------------------------------
+
     if not file.filename.lower().endswith(".pdf"):
         raise HTTPException(status_code=400, detail="Only PDF files are accepted.")
 
