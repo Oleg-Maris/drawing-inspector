@@ -21,6 +21,9 @@ paths:
                   format: binary      # ← tells the builder this is a file
               required:
                 - file       #  ← (dash plus a single space)
+            encoding:
+              file:
+                contentType: application/pdf
       responses:
         '200':
           description: Inspection results per page
