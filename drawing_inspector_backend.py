@@ -92,7 +92,7 @@ def split_pdf_to_images(pdf_bytes: bytes):
             zoom = DPI / 72  # 72 dpi is PDF default
             mat = fitz.Matrix(zoom, zoom)
             pix = page.get_pixmap(matrix=mat, alpha=False)
-            img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
+            img = Image.frombytes("RGB", (pix.width, pix.height), pix.samples)
             images.append(img)
     finally:
         doc.close()
