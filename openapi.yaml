@@ -1,9 +1,9 @@
-openapi: 3.0.1
+openapi: 3.1.0
 info:
   title: Drawing Inspector Backend
   version: "1.0.0"
 servers:
-  - url: https://YOUR_PUBLIC_DOMAIN   # Replace with your deployed URL
+  - url: https://drawing-inspector.onrender.com   # Replace with your deployed URL
 paths:
   /inspectDrawing:
     post:
