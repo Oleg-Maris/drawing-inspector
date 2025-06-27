@@ -19,6 +19,8 @@ paths:
                 file:
                   type: string
                   format: binary      # ← tells the builder this is a file
+              required:
+                - file       #  ← (dash plus a single space)
       responses:
         '200':
           description: Inspection results per page
