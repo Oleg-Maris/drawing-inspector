@@ -14,18 +14,18 @@ MODEL_NAME = os.getenv("OPENAI_MODEL", "gpt-4o-mini")  # GPT model with vision c
 DPI = int(os.getenv("CONVERT_DPI", "200"))     # Raster DPI for pdf2image
 # -----------------------------------
 
+app = FastAPI(
+    title="Drawing Inspector Backend",
+    description="Splits a PDF drawing into pages and inspects each page for ISO/ASME drafting errors.",
+    version="1.0.0"
+)
+
 # ---------- NEW health-check endpoint ----------
 @app.get("/health")
 async def health():
     """Render uptime pinger—no OpenAI cost."""
     return {"status": "ok"}
 # ----------------------------------------------
-
-app = FastAPI(
-    title="Drawing Inspector Backend",
-    description="Splits a PDF drawing into pages and inspects each page for ISO/ASME drafting errors.",
-    version="1.0.0"
-)
 
 PROMPT = (
     "You are a technical drawing reviewer with ISO/ASME drafting expertise.\n\n"
