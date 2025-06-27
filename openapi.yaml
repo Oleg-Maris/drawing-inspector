@@ -1,0 +1,39 @@
+openapi: 3.0.1
+info:
+  title: Drawing Inspector Backend
+  version: "1.0.0"
+servers:
+  - url: https://YOUR_PUBLIC_DOMAIN   # Replace with your deployed URL
+paths:
+  /inspectDrawing:
+    post:
+      summary: Inspect a technical drawing PDF for drafting errors.
+      operationId: inspectDrawing
+      requestBody:
+        required: true
+        content:
+          application/pdf:
+            schema:
+              type: string
+              format: binary
+      responses:
+        '200':
+          description: Inspection results per page
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  filename:
+                    type: string
+                  page_count:
+                    type: integer
+                  results:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        page:
+                          type: integer
+                        issues:
+                          type: string
