@@ -2,10 +2,11 @@ import os
 import io
 from fastapi import FastAPI, UploadFile, File, HTTPException
 import uvicorn
-from pdf2image import convert_from_bytes
+# from pdf2image import convert_from_bytes
 from PIL import Image
 import openai
 import base64
+import fitz  # PyMuPDF
 
 # ---------- Configuration ----------
 openai.api_key = os.getenv("OPENAI_API_KEY")   # Set your key in the environment
@@ -20,25 +21,25 @@ app = FastAPI(
 )
 
 PROMPT = (
-    "You are a technical drawing reviewer with ISO/ASME drafting expertise. "
+    "You are a technical drawing reviewer with ISO/ASME drafting expertise.\n\n"
     "Analyze the provided drawing page image and list any of the following issues you detect. "
     "Return a concise bullet-point list. For each issue, mention its approximate location "
-    "(e.g., 'top-left corner')."
-    "Issues to detect:"
-    "• Missing dimensions"
-    "• Missing tags"
-    "• Non-aligned views"
-    "• Non-aligned view tags"
-    "• Non-aligned dimensions"
-    "• Overlapping dimensions"
-    "• Non-consecutive marks of elements (in schedule)"
-    "• Non-consecutive numbers of views on sheet"
-    "• Missing or unreadable dimension lines"
-    "• Unlabeled components"
-    "• Misaligned annotations"
-    "• Repeated or overlapping elements"
-    "• Scale inconsistencies"
-    "• Missing title block fields (author, revision date, scale)"
+    "(e.g., 'top-left corner').\n\n"
+    "Issues to detect:\n"
+    "• Missing dimensions\n"
+    "• Missing tags\n"
+    "• Non-aligned views\n"
+    "• Non-aligned view tags\n"
+    "• Non-aligned dimensions\n"
+    "• Overlapping dimensions\n"
+    "• Non-consecutive marks of elements (in schedule)\n"
+    "• Non-consecutive numbers of views on sheet\n"
+    "• Missing or unreadable dimension lines\n"
+    "• Unlabeled components\n"
+    "• Misaligned annotations\n"
+    "• Repeated or overlapping elements\n"
+    "• Scale inconsistencies\n"
+    "• Missing title block fields (author, revision date, scale)\n"
     "• Incorrect use of standard symbols"
 )
 
@@ -74,6 +75,22 @@ def _inspect_page(img: Image.Image) -> str:
     )
     return resp.choices[0].message.content.strip()
 
+def split_pdf_to_images(pdf_bytes: bytes):
+    """Render each PDF page to a PIL Image using PyMuPDF (pure Python)."""
+    doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+    images = []
+    try:
+        for page in doc:
+            # Render at desired DPI → PyMuPDF wants zoom
+            zoom = DPI / 72  # 72 dpi is PDF default
+            mat = fitz.Matrix(zoom, zoom)
+            pix = page.get_pixmap(matrix=mat, alpha=False)
+            img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
+            images.append(img)
+    finally:
+        doc.close()
+    return images
+
 @app.post("/inspectDrawing")
 async def inspect_drawing(file: UploadFile = File(...)):
     """
@@ -86,7 +103,7 @@ async def inspect_drawing(file: UploadFile = File(...)):
     pdf_bytes = await file.read()
 
     try:
-        pages = convert_from_bytes(pdf_bytes, dpi=DPI)
+        pages = split_pdf_to_images(pdf_bytes)
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"PDF processing error: {exc}")
 
