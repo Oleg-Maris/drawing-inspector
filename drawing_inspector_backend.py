@@ -2,13 +2,14 @@ import os
 import io
 from fastapi import FastAPI, UploadFile, File, HTTPException, Request
 import uvicorn
-# from pdf2image import convert_from_bytes
 from PIL import Image
 import openai
 import base64
 import fitz  # PyMuPDF
 from openai import Stream
 from openai.types.chat import ChatCompletion, ChatCompletionChunk
+from pydantic import BaseModel
+import httpx, mimetypes, re
 
 # ---------- Configuration ----------
 openai.api_key = os.getenv("OPENAI_API_KEY")   # Set your key in the environment
@@ -102,36 +103,47 @@ def split_pdf_to_images(pdf_bytes: bytes):
         doc.close()
     return images
 
+class UrlBody(BaseModel):
+    url: str
+
 @app.post("/inspectDrawing")
-async def inspect_drawing(file: UploadFile = File(None), request: Request = None):
+async def inspect_drawing(body: UrlBody):
     """
-    Accepts a PDF via multipart/form-data, splits it into pages,
-    and runs each page through GPT-4o-vision for drafting issue detection.
+    Accepts JSON {"url": "..."} where the URL points to a PDF or image.
+    Downloads the file, then runs the same page-analysis pipeline.
     """
-    print("---- incoming request ----")
-    print("Content-Type:", request.headers.get("content-type"))
-    # NOTE: FastAPI reads the stream only once, so don't print body here.
-    # ----------------------------------------
+    url = body.url.strip()
 
-    if not file.filename.lower().endswith(".pdf"):
-        raise HTTPException(status_code=400, detail="Only PDF files are accepted.")
-
-    pdf_bytes = await file.read()
+    # Basic sanity-check
+    if not re.match(r"^https?://", url):
+        raise HTTPException(400, "URL must start with http:// or https://")
 
     try:
-        pages = split_pdf_to_images(pdf_bytes)
-    except Exception as exc:
-        raise HTTPException(status_code=500, detail=f"PDF processing error: {exc}")
+        r = httpx.get(url, follow_redirects=True, timeout=30.0)
+    except httpx.RequestError as exc:
+        raise HTTPException(400, f"Could not fetch URL ({exc})")
+    if r.status_code != 200:
+        raise HTTPException(400, f"URL returned HTTP {r.status_code}")
 
-    results = []
-    for idx, img in enumerate(pages, start=1):
-        page_report = _inspect_page(img)
-        results.append({"page": idx, "issues": page_report})
+    mime = r.headers.get("content-type") or mimetypes.guess_type(url)[0]
+    if mime is None:
+        raise HTTPException(400, "Could not determine file type")
+    if mime.startswith("image/"):
+        images = [Image.open(io.BytesIO(r.content))]
+    elif mime == "application/pdf":
+        images = split_pdf_to_images(r.content)
+    else:
+        raise HTTPException(400, "URL must point to a PDF, PNG, or JPG")
+
+    results = [
+        {"page": i + 1, "issues": _inspect_page(img)}
+        for i, img in enumerate(images)
+    ]
 
     return {
-        "filename": file.filename,
-        "page_count": len(pages),
-        "results": results
+        "filename": url.split("/")[-1],
+        "page_count": len(images),
+        "results": results,
     }
 
 if __name__ == "__main__":
