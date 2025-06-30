@@ -7,6 +7,8 @@ from PIL import Image
 import openai
 import base64
 import fitz  # PyMuPDF
+from openai import Stream
+from openai.types.chat import ChatCompletion, ChatCompletionChunk
 
 # ---------- Configuration ----------
 openai.api_key = os.getenv("OPENAI_API_KEY")   # Set your key in the environment
@@ -63,20 +65,22 @@ def _inspect_page(img: Image.Image) -> str:
     data_url  = f"data:image/png;base64,{b64_data}"
 
     # 2) Build the multimodal message in the format the API expects
+    messages: Iterable[dict] = cast(Iterable[dict], [
+        {
+            "role": "user",
+            "content": [
+                {"type": "text", "text": PROMPT},
+                {
+                    "type": "image_url",
+                    "image_url": {"url": data_url}
+                }
+            ],
+        }
+    ])
+
     resp = openai.chat.completions.create(
         model=MODEL_NAME,
-        messages=[
-            {
-                "role": "user",
-                "content": [
-                    { "type": "text", "text": PROMPT },
-                    {
-                        "type": "image_url",
-                        "image_url": { "url": data_url }
-                    }
-                ],
-            }
-        ],
+        messages=messages,
         max_tokens=512,
         temperature=0.0,
     )
